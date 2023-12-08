@@ -1,6 +1,9 @@
 {
   "fmt": {
-    "lineWidth": 120
+    "lineWidth": 120,
+    "singleQuote": true,
+    "indentWidth": 2,
+    "useTabs": true
   },
   "tasks": {
     "deps:reload": "deno cache --reload src/deps.ts",

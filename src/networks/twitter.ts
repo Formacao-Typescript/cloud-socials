@@ -1,12 +1,15 @@
-import { oak } from "../deps.ts";
+import { oak, z } from '../deps.ts'
 
-export const twitter = new oak.Router().prefix("/twitter");
+const CreateTweetSchema = z.object({})
+type CreateTweetInput = z.infer<typeof CreateTweetSchema>
 
-twitter.post("/", async (ctx) => {
+export const twitter = new oak.Router().prefix('/twitter')
+
+twitter.post('/', async (ctx) => {
   try {
-    ctx.response.body = await ctx.request.body().value;
+    ctx.response.body = await ctx.request.body().value
   } catch {
-    ctx.response.body = "Hello :)";
-    ctx.response.status = 200;
+    ctx.response.body = 'Hello :)'
+    ctx.response.status = 200
   }
-});
+})
