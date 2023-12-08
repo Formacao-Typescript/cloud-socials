@@ -1,0 +1,9 @@
+{
+  "fmt": {
+    "lineWidth": 120
+  },
+  "tasks": {
+    "deps:reload": "deno cache --reload src/deps.ts",
+    "dev": "deno run --watch -A src/server.ts"
+  }
+}
