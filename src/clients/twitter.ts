@@ -1,5 +1,4 @@
 import { AppConfig } from '../config.ts'
-import { baseClient } from './baseClient.ts'
 import { crypto } from '../deps.ts'
 
 export interface AuthorizationHeaderOptions {
