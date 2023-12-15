@@ -30,13 +30,15 @@ const Config = z
 	.object({
 		PORT: z.coerce.number().default(3000),
 		DENO_ENV: z.enum(['development', 'production', 'test']).optional().default('production'),
+		SERVER_OAUTH_CALLBACK_BASEURL: Deno.env.get('DENO_ENV') === 'production' ? z.string() : z.string().optional(),
 		TWITTER_OAUTH_CONSUMER_KEY: z.string(),
 		TWITTER_OAUTH_CONSUMER_SECRET: z.string(),
 		TWITTER_OAUTH_USER_TOKEN: z.string(),
 		TWITTER_OAUTH_USER_SECRET: z.string(),
+		TWITTER_ALLOWED_USER_ID: z.string().optional().default(''),
 		LINKEDIN_CLIENT_ID: z.string(),
 		LINKEDIN_CLIENT_SECRET: z.string(),
-		SERVER_OAUTH_CALLBACK_BASEURL: Deno.env.get('DENO_ENV') === 'production' ? z.string() : z.string().optional(),
+		LINKEDIN_ALLOWED_USER_ID: z.string().optional().default('fXAGSZErfj'),
 	})
 	.transform((envs) => ({
 		isProduction: envs.DENO_ENV === 'production',
@@ -55,10 +57,12 @@ const Config = z
 			consumerSecret: envs.TWITTER_OAUTH_CONSUMER_SECRET,
 			userToken: envs.TWITTER_OAUTH_USER_TOKEN,
 			userSecret: envs.TWITTER_OAUTH_USER_SECRET,
+			allowedUserId: envs.TWITTER_ALLOWED_USER_ID,
 		},
 		linkedin: {
 			clientId: envs.LINKEDIN_CLIENT_ID,
 			clientSecret: envs.LINKEDIN_CLIENT_SECRET,
+			allowedUserId: envs.LINKEDIN_ALLOWED_USER_ID,
 		},
 	}));
 

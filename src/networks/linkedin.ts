@@ -8,7 +8,7 @@ const linkedin = new oak.Router().prefix('/linkedin');
 const db = await openKv();
 const client = new LinkedinClient(appConfig, db);
 
-linkedin.get('/login', (ctx) => {
+linkedin.get('/oauth/login', (ctx) => {
 	const loginUrl = client.loginUrl;
 	ctx.response.body = loginUrl;
 
@@ -46,12 +46,22 @@ linkedin.get('/oauth/callback', async (ctx) => {
 	const data = await client.exchangeAccessToken(code, state);
 	if (data) {
 		await client.saveAccessToken(data);
+		await client.validateAccessToken();
 	}
 
 	ctx.response.status = 200;
 	ctx.response.body = {
 		status: 'ok',
 		message: 'Logged in successfully',
+	};
+});
+
+linkedin.get('/oauth/tokens', async (ctx) => {
+	await client.validateAccessToken();
+	ctx.response.status = 200;
+	ctx.response.body = {
+		status: 'ok',
+		message: 'Token is valid',
 	};
 });
 
