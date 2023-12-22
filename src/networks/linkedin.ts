@@ -1,7 +1,8 @@
 import { LinkedinClient } from '../clients/Linkedin.ts';
 import { appConfig } from '../config.ts';
 import { openKv } from '../data/db.ts';
-import { oak } from '../deps.ts';
+import { oak, z } from '../deps.ts';
+import validateBody from '../middlewares/zodValidationMiddleware.ts';
 
 const linkedin = new oak.Router().prefix('/linkedin');
 
@@ -64,5 +65,33 @@ linkedin.get('/oauth/tokens', async (ctx) => {
 		message: 'Token is valid',
 	};
 });
+
+const LinkedinShareInputSchema = z
+	.array(
+		z.object({
+			text: z.string().max(3000),
+			media: z
+				.array(
+					z.object({
+						type: z.enum(['image', 'document', 'article']),
+						source: z.string().url(),
+						title: z.string().max(100).optional(),
+						description: z.string().max(300).optional(),
+					}),
+				)
+				.optional(),
+		}),
+	)
+	.nonempty();
+
+linkedin.post(
+	'/',
+	validateBody(LinkedinShareInputSchema),
+	async (ctx: oak.Context<{ validatedBody: z.infer<typeof LinkedinShareInputSchema> }>) => {
+		await client.validateAccessToken();
+		const body = ctx.state.validatedBody;
+		ctx.response.status = 201;
+	},
+);
 
 export default linkedin;
