@@ -4,7 +4,7 @@ import { oak } from '../deps.ts';
 export enum NetworkList {
 	Twitter = 'twitter',
 	LinkedIn = 'linkedin',
-	Instagram = 'instagram',
+	// Instagram = 'instagram',
 }
 
 export const install = async (app: oak.Application, { loggers }: AppConfig) => {
