@@ -59,7 +59,7 @@ export class LinkedinClient {
 	}
 
 	async exchangeAccessToken(code: string, nonce: string) {
-		this.logger.debug(`LinkedinClient.getAccessToken :: nonce ${nonce}`);
+		this.logger.debug(`LinkedinClient.exchangeAccessToken :: nonce ${nonce}`);
 
 		const response = await fetch(`${this.oauthURL}/accessToken`, {
 			method: 'POST',
@@ -74,7 +74,7 @@ export class LinkedinClient {
 		});
 
 		const data = accessTokenResponseSchema.parse(await response.json());
-		this.logger.debug(`LinkedinClient.getAccessToken :: data ${JSON.stringify(data, null, 2)}`);
+		this.logger.debug(`LinkedinClient.exchangeAccessToken :: data ${JSON.stringify(data, null, 2)}`);
 		return data;
 	}
 
@@ -128,15 +128,15 @@ export class LinkedinClient {
 		if (!refreshToken) return false;
 
 		this.logger.debug(`LinkedinClient.refreshAccessToken :: refreshToken is present`);
-		const response = await fetch(`${this.oauthURL}/accessToken`, {
+		const URLQueryString = new URLSearchParams({
+			grant_type: 'refresh_token',
+			refresh_token: refreshToken,
+			client_id: this.config.clientId,
+			client_secret: this.config.clientSecret,
+		});
+		const response = await fetch(`${this.oauthURL}/accessToken?${URLQueryString.toString()}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams({
-				grant_type: 'refresh_token',
-				refresh_token: refreshToken,
-				client_id: this.config.clientId,
-				client_secret: this.config.clientSecret,
-			}),
 		});
 
 		const data = accessTokenResponseSchema.parse(await response.json());
