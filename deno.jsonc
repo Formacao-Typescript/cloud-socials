@@ -2,6 +2,7 @@
 	"fmt": {
 		"lineWidth": 120,
 		"singleQuote": true,
+		"semiColons": false,
 		"indentWidth": 2,
 		"useTabs": true
 	},
