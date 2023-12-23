@@ -72,7 +72,11 @@ linkedin.post(
 	async (ctx: oak.Context<{ validatedBody: z.infer<typeof LinkedinShareInputSchema> }>) => {
 		await client.validateAccessToken()
 
+		const response = await client.sharePost(ctx.state.validatedBody)
+
 		ctx.response.status = 201
+		ctx.response.headers.set('Location', `https://www.linkedin.com/feed/update/${response.postUrn}`)
+		ctx.response.headers.set('X-LinkedIn-Post-URN', response.postUrn)
 	},
 )
 

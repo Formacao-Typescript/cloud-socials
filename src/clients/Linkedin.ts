@@ -257,6 +257,8 @@ export class LinkedinClient {
 				'Content-Type': blob.type,
 				'Content-Length': blob.size.toString(),
 				Authorization: `Bearer ${await this.accessToken()}`,
+				'LinkedIn-Version': this.apiVersion,
+				'X-Restli-Protocol-Version': this.restliProtocolVersion,
 			},
 			body: blob.stream(),
 		})
@@ -283,9 +285,11 @@ export class LinkedinClient {
 	async sharePost(input: LinkedinShareInput) {
 		const accessToken = await this.accessToken()
 		const post = new LinkedinPost(input.text, this.authorizedUserURN)
+		this.logger.debug(`LinkedinClient.sharePost :: post ${JSON.stringify(post.payload, null, 2)}`)
 
 		// Check if the post has any media, such as a link or an image
 		if (input.media) {
+			this.logger.info(`LinkedinClient.sharePost :: post has media ${JSON.stringify(input.media, null, 2)}`)
 			if (input.media.type === LinkedinMediaTypes.ARTICLE) {
 				// Articles (links) are shared with simple text
 				post.addArticle(input.media)
@@ -302,22 +306,27 @@ export class LinkedinClient {
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${accessToken}`,
+				'LinkedIn-Version': this.apiVersion,
+				'X-Restli-Protocol-Version': this.restliProtocolVersion,
 			},
 			body: JSON.stringify(post.payload),
 		})
 
-		const data = await response.json()
-		if (!response.ok) throw new FailedToShareError('Linkedin', data)
+		this.logger.debug(`LinkedinClient.sharePost :: response ${response.status}`)
+		if (!response.ok) {
+			const data = await response.json()
+			throw new FailedToShareError('Linkedin', data)
+		}
 
 		const postUrn = response.headers.get('x-restli-id')
 
 		// Sanity check, if the response is ok this will always be true
 		if (!postUrn) {
-			this.logger.error(`LinkedinClient.sharePost :: failed to get post id ${JSON.stringify(data, null, 2)}`)
-			throw new FailedToShareError('Linkedin', data, 'Failed to get post id')
+			this.logger.error(`LinkedinClient.sharePost :: failed to get post id`)
+			throw new FailedToShareError('Linkedin', { code: response.status }, 'Failed to get post id')
 		}
 
-		this.logger.info(`LinkedinClient.sharePost :: post ${postUrn} shared ${JSON.stringify(data, null, 2)}`)
+		this.logger.info(`LinkedinClient.sharePost :: post ${postUrn} shared`)
 
 		// Post comments
 		if (input.comments) {
@@ -332,7 +341,7 @@ export class LinkedinClient {
 					})
 			}
 		}
-		return postUrn
+		return { postUrn }
 	}
 
 	async postComment(postUrn: string, comment: string) {
@@ -344,6 +353,7 @@ export class LinkedinClient {
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${accessToken}`,
+				'LinkedIn-Version': this.apiVersion,
 			},
 			body: JSON.stringify({
 				actor: this.authorizedUserURN,
