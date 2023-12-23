@@ -228,7 +228,8 @@ export class LinkedinClient {
 	// #endregion
 
 	// #region assets
-	async initializeUpload(mediaType: LinkedinMediaTypes, source: string) {
+	async initializeUpload(mediaType: Exclude<LinkedinMediaTypes, 'article'>, source: string) {
+		if (mediaType === LinkedinMediaTypes.VIDEO) throw new Error('Video uploads are not supported yet')
 		this.logger.info(`LinkedinClient.initializeUpload :: media ${source}`)
 		const accessToken = await this.accessToken()
 
@@ -247,7 +248,7 @@ export class LinkedinClient {
 			}),
 		})
 
-		const data = (await response.json()) as { value: { uploadUrlExpiresAt: number; uploadUrl: string; image: string } }
+		const data = await response.json()
 		this.logger.debug(`LinkedinClient.initializeUpload :: response ${JSON.stringify(data, null, 2)}`)
 		if (!response.ok) throw new FailedToShareError('Linkedin', data, 'Failed to initialize upload')
 
@@ -255,7 +256,7 @@ export class LinkedinClient {
 
 		return {
 			uploadUrl: data.value.uploadUrl,
-			urn: data.value.image,
+			urn: data.value.image ?? data.value.document,
 		}
 	}
 
@@ -265,17 +266,18 @@ export class LinkedinClient {
 		const blob = await downloadedMedia.blob()
 		this.logger.info(`LinkedinClient.uploadAsset :: got blob from source ${blob.type} ${blob.size}`)
 
-		const uploadResponse = await fetch(uploadUrl, {
+		const uploadOptions = {
 			method: 'PUT',
 			headers: {
-				'Content-Type': blob.type,
+				'Content-type': 'application/octet-stream',
 				'Content-Length': blob.size.toString(),
 				Authorization: `Bearer ${await this.accessToken()}`,
 				'LinkedIn-Version': this.apiVersion,
 				'X-Restli-Protocol-Version': this.restliProtocolVersion,
 			},
-			body: blob.stream(),
-		})
+			body: new Uint8Array(await blob.arrayBuffer()),
+		}
+		const uploadResponse = await fetch(uploadUrl, uploadOptions)
 		this.logger.info(`LinkedinClient.uploadAsset :: uploaded ${blob.size} bytes -> ${uploadResponse.status}`)
 
 		if (!uploadResponse.ok) {
@@ -402,7 +404,7 @@ export class LinkedinClient {
 					})
 			}
 		}
-		return { postUrn }
+		return { postUrn, postUrl: `https://www.linkedin.com/feed/update/${postUrn}`, post: post.payload }
 	}
 
 	async postComment(postUrn: string, comment: string) {

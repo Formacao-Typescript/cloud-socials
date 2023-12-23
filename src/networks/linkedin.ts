@@ -75,6 +75,7 @@ linkedin.post(
 		const response = await client.sharePost(ctx.state.validatedBody)
 
 		ctx.response.status = 201
+		ctx.response.body = response
 		ctx.response.headers.set('Location', `https://www.linkedin.com/feed/update/${response.postUrn}`)
 		ctx.response.headers.set('X-LinkedIn-Post-URN', response.postUrn)
 	},
