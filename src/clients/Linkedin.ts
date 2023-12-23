@@ -228,7 +228,7 @@ export class LinkedinClient {
 	// #endregion
 
 	// #region assets
-	async initializeUpload(mediaType: Exclude<LinkedinMediaTypes, 'article'>, source: string) {
+	private async initializeUpload(mediaType: Exclude<LinkedinMediaTypes, 'article'>, source: string) {
 		if (mediaType === LinkedinMediaTypes.VIDEO) throw new Error('Video uploads are not supported yet')
 		this.logger.info(`LinkedinClient.initializeUpload :: media ${source}`)
 		const accessToken = await this.accessToken()
@@ -260,7 +260,7 @@ export class LinkedinClient {
 		}
 	}
 
-	async uploadAsset(uploadUrl: string, source: string) {
+	private async uploadAsset(uploadUrl: string, source: string) {
 		this.logger.info(`LinkedinClient.uploadAsset :: uploading ${source} to ${uploadUrl}`)
 		const downloadedMedia = await fetch(source)
 		const blob = await downloadedMedia.blob()
@@ -296,7 +296,10 @@ export class LinkedinClient {
 		return true
 	}
 
-	async enrichArticle(media: z.infer<typeof LinkedinMediaArticleSchema>) {
+	/**
+	 * Adds social card information from opengraph in case there is none
+	 */
+	private async enrichArticle(media: z.infer<typeof LinkedinMediaArticleSchema>) {
 		this.logger.info(`LinkedinClient.enrichArticle :: enriching ${JSON.stringify(media, null, 2)}`)
 		const article: typeof media = structuredClone(media)
 		if (article.thumbnail && article.title) return media
