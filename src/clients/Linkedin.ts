@@ -1,9 +1,10 @@
 import { AppConfig } from '../config.ts'
-import { crypto, encodeBase64, z } from '../deps.ts'
-import { LinkedinPost } from '../domain/LinkedinPost.ts'
+import { crypto, DOMParser, encodeBase64, initDomParser, z } from '../deps.ts'
+import { SOCIAL_CARD_META_TAGS } from '../domain/constants.ts'
 import { ExpiredTokenError } from '../domain/errors/ExpiredTokenError.ts'
 import { FailedToShareError } from '../domain/errors/FailedToShareError.ts'
 import { WrongTokenError } from '../domain/errors/WrongTokenError.ts'
+import { LinkedinPost } from '../domain/LinkedinPost.ts'
 
 export enum LinkedinMediaTypes {
 	IMAGE = 'image',
@@ -22,23 +23,34 @@ const accessTokenResponseSchema = z.object({
 		.transform((n) => (n ? n * 1000 : n)),
 })
 
-const LinkedinMediaSchema = z.object({
-	type: z.nativeEnum(LinkedinMediaTypes),
+const LinkedinMediaAssetSchema = z.object({
+	type: z.enum([LinkedinMediaTypes.IMAGE, LinkedinMediaTypes.DOCUMENT, LinkedinMediaTypes.VIDEO]),
+	source: z.string().url(),
+	title: z.string().max(100),
+})
+
+const LinkedinMediaArticleSchema = z.object({
+	type: z.literal(LinkedinMediaTypes.ARTICLE),
 	source: z.string().url(),
 	thumbnail: z.string().url().optional(),
-	title: z.string().max(100),
+	title: z.string().max(100).optional(),
 	description: z.string().max(300).optional(),
 })
+
+const LinkedinMediaSchema = z.discriminatedUnion('type', [LinkedinMediaArticleSchema, LinkedinMediaAssetSchema])
+
 export type LinkedinMedia = z.infer<typeof LinkedinMediaSchema>
 
 export const LinkedinShareInputSchema = z.object({
 	text: z.string().max(3000),
 	media: LinkedinMediaSchema.optional(),
-	comments: z.array(
-		z.object({
-			text: z.string().max(3000),
-		}),
-	),
+	comments: z
+		.array(
+			z.object({
+				text: z.string().max(3000),
+			}),
+		)
+		.optional(),
 })
 
 type LinkedinShareInput = z.infer<typeof LinkedinShareInputSchema>
@@ -216,10 +228,11 @@ export class LinkedinClient {
 	// #endregion
 
 	// #region assets
-	async initializeUpload(media: LinkedinMedia) {
+	async initializeUpload(mediaType: LinkedinMediaTypes, source: string) {
+		this.logger.info(`LinkedinClient.initializeUpload :: media ${source}`)
 		const accessToken = await this.accessToken()
 
-		const response = await fetch(`${this.getAssetUrl(media.type)}?action=initializeUpload`, {
+		const response = await fetch(`${this.getAssetUrl(mediaType)}?action=initializeUpload`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -235,9 +248,10 @@ export class LinkedinClient {
 		})
 
 		const data = (await response.json()) as { value: { uploadUrlExpiresAt: number; uploadUrl: string; image: string } }
+		this.logger.debug(`LinkedinClient.initializeUpload :: response ${JSON.stringify(data, null, 2)}`)
 		if (!response.ok) throw new FailedToShareError('Linkedin', data, 'Failed to initialize upload')
 
-		await this.uploadAsset(data.value.uploadUrl, media.source)
+		await this.uploadAsset(data.value.uploadUrl, source)
 
 		return {
 			uploadUrl: data.value.uploadUrl,
@@ -279,6 +293,53 @@ export class LinkedinClient {
 		}
 		return true
 	}
+
+	async enrichArticle(media: z.infer<typeof LinkedinMediaArticleSchema>) {
+		this.logger.info(`LinkedinClient.enrichArticle :: enriching ${JSON.stringify(media, null, 2)}`)
+		const article: typeof media = structuredClone(media)
+		if (article.thumbnail && article.title) return media
+
+		const response = await Promise.race([
+			fetch(media.source),
+			new Promise<{ ok: boolean }>((resolve) => setTimeout(() => resolve({ ok: false }), 3000)),
+		])
+		this.logger.debug(`LinkedinClient.enrichArticle :: response from fetch ${response.ok}`)
+
+		if (!response.ok) return media
+		const html = await (response as Response).text()
+
+		this.logger.debug(`LinkedinClient.enrichArticle :: initializing dom parser`)
+		await initDomParser()
+		const doc = new DOMParser().parseFromString(html, 'text/html')
+		this.logger.debug(`LinkedinClient.enrichArticle :: parsed dom`)
+		if (!doc) return media
+
+		for (const property of ['title', 'thumbnail', 'description'] as const) {
+			if (!article[property]) {
+				this.logger.info(`LinkedinClient.enrichArticle :: enriching missing ${property}`)
+				for (const { selector, value } of SOCIAL_CARD_META_TAGS.filter(({ name }) => name === property)) {
+					this.logger.info(`LinkedinClient.enrichArticle :: trying selector ${selector}`)
+					const el = doc.querySelector(selector)
+					if (el) {
+						this.logger.info(`LinkedinClient.enrichArticle :: found ${property} with ${value(el)}`)
+						let validatedProperty = value(el) ?? article[property]
+
+						// Linkedin only accepts URNs as images for articles
+						// So we need to upload the image first
+						if (property === 'thumbnail' && validatedProperty) {
+							validatedProperty = (await this.initializeUpload(LinkedinMediaTypes.IMAGE, validatedProperty)).urn
+						}
+						article[property] = validatedProperty
+						break
+					}
+				}
+			}
+			this.logger.debug(`LinkedinClient.enrichArticle :: enriched ${property} with ${article[property]}`)
+		}
+
+		this.logger.debug(`LinkedinClient.enrichArticle :: enriched article ${JSON.stringify(article, null, 2)}`)
+		return article
+	}
 	// #endregion
 
 	// #region share
@@ -292,10 +353,10 @@ export class LinkedinClient {
 			this.logger.info(`LinkedinClient.sharePost :: post has media ${JSON.stringify(input.media, null, 2)}`)
 			if (input.media.type === LinkedinMediaTypes.ARTICLE) {
 				// Articles (links) are shared with simple text
-				post.addArticle(input.media)
+				post.addArticle(await this.enrichArticle(input.media))
 			} else {
 				// For all other media types, we need to upload the asset first
-				const assetInformation = await this.initializeUpload(input.media)
+				const assetInformation = await this.initializeUpload(input.media.type, input.media.source)
 				post.addMedia(input.media.type, input.media.title, assetInformation.urn)
 			}
 		}
