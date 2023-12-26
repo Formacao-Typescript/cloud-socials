@@ -1,14 +1,8 @@
-import { LinkedinMedia, LinkedinMediaTypes } from '../clients/Linkedin.ts'
-
-type LinkedinArticleMedia = Omit<LinkedinMedia, 'type'> & { type: 'article' }
-type LinkedinMediaGeneral = {
-	type: Exclude<LinkedinMedia['type'], 'article'>
-	id: string
-	title: string
-}
+import { LinkedinMediaTypes } from '../clients/LinkedinClient.ts'
+import { LinkedinMediaArticleInput, LinkedinMediaAssetInput, LinkedinMediaInput } from '../networks/linkedin.ts'
 
 export class LinkedinPost {
-	media?: LinkedinArticleMedia | LinkedinMediaGeneral
+	media?: LinkedinMediaArticleInput | Omit<LinkedinMediaAssetInput & { id: string }, 'source'>
 
 	constructor(readonly text: string, readonly author: string) {}
 
@@ -28,7 +22,7 @@ export class LinkedinPost {
 		}
 	}
 
-	addArticle(data: Omit<LinkedinMedia, 'type'>) {
+	addArticle(data: Omit<LinkedinMediaInput, 'type'>) {
 		this.media = {
 			type: LinkedinMediaTypes.ARTICLE,
 			...data,
@@ -36,7 +30,7 @@ export class LinkedinPost {
 		return this
 	}
 
-	addMedia(type: Exclude<LinkedinMedia['type'], 'article'>, title: string, id: string) {
+	addMedia(type: Exclude<LinkedinMediaInput['type'], 'article'>, title: string, id: string) {
 		this.media = {
 			type,
 			title,
