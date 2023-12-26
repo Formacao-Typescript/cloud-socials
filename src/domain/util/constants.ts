@@ -1,4 +1,4 @@
-import { Element } from '../deps.ts'
+import { Element } from '../../deps.ts'
 
 export const SOCIAL_CARD_META_TAGS = [
 	{

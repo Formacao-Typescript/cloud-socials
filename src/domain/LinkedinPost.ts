@@ -1,6 +1,10 @@
-import { LinkedinMedia, LinkedinMediaTypes } from '../clients/Linkedin.ts'
+import {
+	LinkedinMedia,
+	LinkedinMediaArticle,
+	LinkedinMediaAsset,
+	LinkedinMediaTypes,
+} from '../clients/LinkedinClient.ts'
 
-type LinkedinArticleMedia = Omit<LinkedinMedia, 'type'> & { type: 'article' }
 type LinkedinMediaGeneral = {
 	type: Exclude<LinkedinMedia['type'], 'article'>
 	id: string
@@ -8,7 +12,7 @@ type LinkedinMediaGeneral = {
 }
 
 export class LinkedinPost {
-	media?: LinkedinArticleMedia | LinkedinMediaGeneral
+	media?: LinkedinMediaArticle | Omit<LinkedinMediaAsset & { id: string }, 'source'>
 
 	constructor(readonly text: string, readonly author: string) {}
 
