@@ -265,7 +265,7 @@ export class LinkedinClient {
     // split the video into 4MB chunks and upload them in parallel (split -b 4194303)
     const promises = []
     for (const { uploadUrl, firstByte, lastByte } of urlArray) {
-      const chunk = videoBlob.slice(firstByte, lastByte)
+      const chunk = urlArray.length > 1 ? videoBlob.slice(firstByte, lastByte+1) : videoBlob
       const headers = {
         'Content-type': 'application/octet-stream',
         'Content-Length': chunk.size.toString(),
