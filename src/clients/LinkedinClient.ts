@@ -162,6 +162,13 @@ export class LinkedinClient {
     mediaType: LinkedinMediaTypes,
     payload: Omit<InitializeUploadOptions<typeof mediaType>, 'source'>
   ) {
+    this.logger.info(
+      `LinkedinClient.baseInitializeUpload :: initializing upload for ${mediaType}, payload ${JSON.stringify(
+        payload,
+        null,
+        2
+      )}`
+    )
     const response = await fetch(`${this.getAssetUrl(mediaType)}?action=initializeUpload`, {
       method: 'POST',
       headers: {
@@ -264,6 +271,7 @@ export class LinkedinClient {
      */
     // split the video into 4MB chunks and upload them in parallel (split -b 4194303)
     const promises = []
+    this.logger.info(`LinkedinClient.uploadVideo :: uploading ${videoBlob.size} bytes in ${urlArray.length} chunks`)
     for (const { uploadUrl, firstByte, lastByte } of urlArray) {
       const chunk = urlArray.length > 1 ? videoBlob.slice(firstByte, lastByte+1) : videoBlob
       const headers = {
@@ -278,13 +286,17 @@ export class LinkedinClient {
         headers,
         body: new Uint8Array(await chunk.arrayBuffer())
       }
+      this.logger.debug(`LinkedinClient.uploadVideo :: uploading ${chunk.size} bytes to ${uploadUrl}`)
       promises.push(fetch(uploadUrl, options))
     }
 
     const responses = await Promise.all(promises)
+    this.logger.debug(`LinkedinClient.uploadVideo :: responses ${JSON.stringify(responses, null, 2)}`)
 
     // Save ETags
     const ETags = responses.map((res) => res.headers.get('etag')) as string[]
+    this.logger.debug(`LinkedinClient.uploadVideo :: ETags ${JSON.stringify(ETags, null, 2)}`)
+    await delay(500) // Linkedin needs a bit of time to process the chunks
     return this.finalizeVideoUpload(accessToken, { videoUrn, uploadToken, ETags })
   }
 
@@ -293,6 +305,14 @@ export class LinkedinClient {
     { videoUrn, uploadToken, ETags }: Omit<UploadVideoOptions, 'videoBlob' | 'urlArray'> & { ETags: string[] },
     retries = 3
   ): Promise<boolean> {
+    const body = JSON.stringify({
+      finalizeUploadRequest: {
+        uploadToken,
+        video: videoUrn,
+        uploadedPartIds: ETags
+      }
+    })
+    const options = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -300,14 +320,11 @@ export class LinkedinClient {
         'LinkedIn-Version': this.apiVersion,
         'X-Restli-Protocol-Version': this.restliProtocolVersion
       },
-      body: JSON.stringify({
-        finalizeUploadRequest: {
-          uploadToken,
-          video: videoUrn,
-          uploadedPartIds: ETags.map((etag, index) => ({ part: index + 1, etag }))
-        }
-      })
-    })
+      body
+    }
+
+    this.logger.debug(`LinkedinClient.finalizeVideoUpload :: options ${JSON.stringify(options, null, 2)}`)
+    const response = await fetch(`${this.getAssetUrl('video')}?action=finalizeUpload`, options)
 
     const data = await response.text()
     this.logger.debug(`LinkedinClient.finalizeVideoUpload :: response ${JSON.stringify(data, null, 2)}`)

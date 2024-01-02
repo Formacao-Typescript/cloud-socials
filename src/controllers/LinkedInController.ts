@@ -137,6 +137,7 @@ export class LinkedInController {
             fileSizeBytes: video.size
           })
           post.addMedia(media.type, media.title, videoUrn)
+          this.logger.info(`LinkedinClient.sharePost :: videoUrn received ${videoUrn}`)
 
           // NOTE: This can probably be done in parallel since we will have to split it into 4MB chunks anyway
           await this.client.uploadVideo(accessToken, { urlArray, videoBlob: video, videoUrn, uploadToken })
