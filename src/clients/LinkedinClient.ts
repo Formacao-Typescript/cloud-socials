@@ -290,9 +290,9 @@ export class LinkedinClient {
 
   private async finalizeVideoUpload(
     accessToken: string,
-    { videoUrn, uploadToken, ETags }: Omit<UploadVideoOptions, 'videoBlob' | 'urlArray'> & { ETags: string[] }
-  ) {
-    const response = await fetch(`${this.getAssetUrl('video')}?action=finalizeUpload`, {
+    { videoUrn, uploadToken, ETags }: Omit<UploadVideoOptions, 'videoBlob' | 'urlArray'> & { ETags: string[] },
+    retries = 3
+  ): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -309,13 +309,20 @@ export class LinkedinClient {
       })
     })
 
-    const data = await response.json()
+    const data = await response.text()
     this.logger.debug(`LinkedinClient.finalizeVideoUpload :: response ${JSON.stringify(data, null, 2)}`)
     if (!response.ok) {
-      throw new FailedToShareError('Linkedin', data, 'Failed to finalize video upload')
+      if (retries === 0) {
+        throw new FailedToShareError('Linkedin', { data }, 'Failed to finalize video upload')
+      }
+      this.logger.warning(
+        `LinkedinClient.finalizeVideoUpload :: failed to finalize video upload, trying again (${retries}/3)`
+      )
+      await delay(500 * retries + 1)
+      return this.finalizeVideoUpload(accessToken, { videoUrn, uploadToken, ETags }, retries - 1)
     }
 
-		return true
+    return true
   }
 
   async sharePost(post: LinkedinPost, accessToken: string) {
@@ -349,7 +356,13 @@ export class LinkedinClient {
     return { postUrn, postUrl: `https://www.linkedin.com/feed/update/${postUrn}`, payload: post.payload }
   }
 
-  async postComment(postUrn: string, comment: string, accessToken: string, authorUrn: string): Promise<string> {
+  async postComment(
+    postUrn: string,
+    comment: string,
+    accessToken: string,
+    authorUrn: string,
+    retries = 10
+  ): Promise<string> {
     this.logger.info(`LinkedinClient.postComment :: posting comment on ${postUrn}`)
 
     const response = await fetch(`${this.baseUrl}/socialActions/${postUrn}/comments`, {
@@ -368,10 +381,10 @@ export class LinkedinClient {
       })
     })
 
-    if (response.status === 404) {
+    if (response.status === 404 && retries > 0) {
       this.logger.warning(`LinkedinClient.postComment :: post ${postUrn} not found, trying again`)
-      await delay(500)
-      return this.postComment(postUrn, comment, accessToken, authorUrn)
+      await delay(500 * retries + 1)
+      return this.postComment(postUrn, comment, accessToken, authorUrn, retries - 1)
     }
     const data: { commentUrn: string } = await response.json()
 
