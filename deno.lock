@@ -2,23 +2,72 @@
   "version": "3",
   "packages": {
     "specifiers": {
-      "npm:superjson@1.13.3": "npm:superjson@1.13.3"
+      "npm:@types/node": "npm:@types/node@18.14.6",
+      "npm:superjson@1.13.3": "npm:superjson@1.13.3",
+      "npm:twitter-api-sdk": "npm:twitter-api-sdk@1.2.1",
+      "npm:twitter-api-v2": "npm:twitter-api-v2@1.15.2"
     },
     "npm": {
+      "@types/node@18.14.6": {
+        "integrity": "sha512-93+VvleD3mXwlLI/xASjw0FzKcwzl3OdTCzm1LaRfqgS21gfFtK3zDXM5Op9TeeMsJVOaJ2VRDpT9q4Y3d0AvA==",
+        "dependencies": {}
+      },
+      "abort-controller@3.0.0": {
+        "integrity": "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==",
+        "dependencies": {
+          "event-target-shim": "event-target-shim@5.0.1"
+        }
+      },
       "copy-anything@3.0.5": {
         "integrity": "sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==",
         "dependencies": {
           "is-what": "is-what@4.1.15"
         }
       },
+      "event-target-shim@5.0.1": {
+        "integrity": "sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==",
+        "dependencies": {}
+      },
       "is-what@4.1.15": {
         "integrity": "sha512-uKua1wfy3Yt+YqsD6mTUEa2zSi3G1oPlqTflgaPJ7z63vUGN5pxFpnQfeSLMFnJDEsdvOtkp1rUWkYjB4YfhgA==",
         "dependencies": {}
+      },
+      "node-fetch@2.6.9": {
+        "integrity": "sha512-DJm/CJkZkRjKKj4Zi4BsKVZh3ValV5IR5s7LVZnW+6YMh0W1BfNA8XSs6DLMGYlId5F3KnA70uu2qepcR08Qqg==",
+        "dependencies": {
+          "whatwg-url": "whatwg-url@5.0.0"
+        }
       },
       "superjson@1.13.3": {
         "integrity": "sha512-mJiVjfd2vokfDxsQPOwJ/PtanO87LhpYY88ubI5dUB1Ab58Txbyje3+jpm+/83R/fevaq/107NNhtYBLuoTrFg==",
         "dependencies": {
           "copy-anything": "copy-anything@3.0.5"
+        }
+      },
+      "tr46@0.0.3": {
+        "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==",
+        "dependencies": {}
+      },
+      "twitter-api-sdk@1.2.1": {
+        "integrity": "sha512-tNQ6DGYucFk94JlnUMsHCkHg5o1wnCdHh71Y2ukygNVssOdD1gNVjOpaojJrdwbEAhoZvcWdGHerCa55F8HKxQ==",
+        "dependencies": {
+          "abort-controller": "abort-controller@3.0.0",
+          "node-fetch": "node-fetch@2.6.9"
+        }
+      },
+      "twitter-api-v2@1.15.2": {
+        "integrity": "sha512-iIGItwkUGsAGA6VNnULXL5dllVJ35IZQjLSTWvqSn4M7s19B6X1+pUB/ZDSJD+u6q6+FinNxy0dnDIEoCZ5x8w==",
+        "dependencies": {}
+      },
+      "webidl-conversions@3.0.1": {
+        "integrity": "sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==",
+        "dependencies": {}
+      },
+      "whatwg-url@5.0.0": {
+        "integrity": "sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==",
+        "dependencies": {
+          "tr46": "tr46@0.0.3",
+          "webidl-conversions": "webidl-conversions@3.0.1"
         }
       }
     }
@@ -31,6 +80,7 @@
     "https://deno.land/x/pkce_deno/mod.ts": "https://deno.land/x/pkce_deno@v2.0/mod.ts"
   },
   "remote": {
+    "https://deno.land/std@0.119.0/hash/sha256.ts": "bd85257c68d1fdd9da8457284c4fbb04efa9f4f2229b5f41a638d5b71a3a8d5c",
     "https://deno.land/std@0.196.0/assert/assert.ts": "9a97dad6d98c238938e7540736b826440ad8c1c1e54430ca4c4e623e585607ee",
     "https://deno.land/std@0.196.0/assert/assertion_error.ts": "4d0bde9b374dfbcbe8ac23f54f567b77024fb67dbb1906a852d67fe050d42f56",
     "https://deno.land/std@0.196.0/console/_data.json": "cf2cc9d039a192b3adbfe64627167c7e6212704c888c25c769fc8f1709e1e1b8",

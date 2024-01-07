@@ -34,6 +34,10 @@ const Config = z
 		TWITTER_OAUTH_CLIENT_ID: z.string(),
 		TWITTER_OAUTH_CLIENT_SECRET: z.string(),
 		TWITTER_ALLOWED_USER_ID: z.string().optional().default(''),
+		TWITTER_APP_KEY: z.string(),
+		TWITTER_APP_SECRET: z.string(),
+		TWITTER_ACCESS_TOKEN: z.string().optional(),
+		TWITTER_ACCESS_SECRET: z.string().optional(),
 		LINKEDIN_CLIENT_ID: z.string(),
 		LINKEDIN_CLIENT_SECRET: z.string(),
 		LINKEDIN_ALLOWED_USER_ID: z.string().optional().default('fXAGSZErfj'),
@@ -51,9 +55,15 @@ const Config = z
 			error: log.getLogger('error'),
 		},
 		twitter: {
+			allowedUserId: envs.TWITTER_ALLOWED_USER_ID,
+			// Oauth 1.0a credentials
+			appKey: envs.TWITTER_APP_KEY,
+			appSecret: envs.TWITTER_APP_SECRET,
+			accessToken: envs.TWITTER_ACCESS_TOKEN,
+			accessSecret: envs.TWITTER_ACCESS_SECRET,
+			// Oauth 2.0 credentials
 			clientId: envs.TWITTER_OAUTH_CLIENT_ID,
 			clientSecret: envs.TWITTER_OAUTH_CLIENT_SECRET,
-			allowedUserId: envs.TWITTER_ALLOWED_USER_ID,
 		},
 		linkedin: {
 			clientId: envs.LINKEDIN_CLIENT_ID,

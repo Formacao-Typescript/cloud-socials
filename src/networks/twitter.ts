@@ -1,7 +1,8 @@
-import { TwitterClient } from '../clients/Twitter.ts';
+import { TwitterClient, TwitterPostObject, TwitterThreadObject } from '../clients/Twitter.ts';
 import { appConfig } from '../config.ts';
-import { openKv } from '../data/db.ts';
 import { oak } from '../deps.ts';
+
+import { openKv } from '../data/db.ts';
 
 const twitter = new oak.Router().prefix('/twitter');
 
@@ -44,10 +45,8 @@ twitter.get('/oauth/callback', async (ctx) => {
 	}
 
 	const data = await client.exchangeAccessToken(code, state);
-	if (data) {
-		await client.saveAccessToken(data);
-		await client.validateAccessToken();
-	}
+	await client.saveAccessToken(data);
+	await client.validateAccessToken();
 
 	ctx.response.status = 200;
 	ctx.response.body = {
@@ -62,6 +61,32 @@ twitter.get('/oauth/tokens', async (ctx) => {
 	ctx.response.body = {
 		status: 'ok',
 		message: 'Token is valid',
+	};
+});
+
+twitter.post('/tweet', async (ctx) => {
+	const body = TwitterPostObject.parse(await ctx.request.body({ type: 'json' }).value);
+
+	const tweet = await client.createTweet(body);
+
+	ctx.response.status = 200;
+	ctx.response.body = {
+		status: 'ok',
+		message: 'Tweet created',
+		tweet,
+	};
+});
+
+twitter.post('/thread', async (ctx) => {
+	const body = TwitterThreadObject.parse(await ctx.request.body({ type: 'json' }).value);
+
+	const threadId = await client.createThread(body);
+
+	ctx.response.status = 200;
+	ctx.response.body = {
+		status: 'ok',
+		message: 'Thread created',
+		threadId,
 	};
 });
 

@@ -8,3 +8,5 @@ export { writeAll } from 'https://deno.land/std@0.208.0/streams/mod.ts';
 export * as oak from 'https://deno.land/x/oak@v12.6.1/mod.ts';
 export * as pkce from 'https://deno.land/x/pkce_deno@v2.0/mod.ts';
 export * as z from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+export { Buffer } from 'node:buffer';
+export * as twitter from 'npm:twitter-api-v2';

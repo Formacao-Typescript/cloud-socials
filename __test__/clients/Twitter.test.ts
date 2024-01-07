@@ -16,8 +16,6 @@ Deno.test('Twitter Client', async (t) => {
 
 		const url = new URL(await client.getAuthorizeUrl());
 
-		console.log(url.toString());
-
 		assertion.assertEquals(url.searchParams.get('response_type'), 'code');
 		assertion.assertEquals(url.searchParams.get('response_type'), 'code');
 		assertion.assertEquals(url.searchParams.get('client_id'), appConfig.twitter.clientId);

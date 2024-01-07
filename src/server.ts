@@ -20,6 +20,8 @@ app.use(async (ctx, next) => {
 		} else if (error instanceof z.ZodError) {
 			ctx.response.status = 422;
 			ctx.response.body = { ...ctx.response.body, cause: error.issues };
+		} else {
+			console.error(error);
 		}
 	} finally {
 		log.info(
