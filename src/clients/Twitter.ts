@@ -33,9 +33,7 @@ export const TwitterPostObject = z.object({
 
 export type TwitterPostObject = z.infer<typeof TwitterPostObject>;
 
-export const TwitterThreadObject = TwitterPostObject
-	.omit({ text: true })
-	.extend({ tweets: z.array(z.string()) });
+export const TwitterThreadObject = TwitterPostObject.array();
 
 export type TwitterThreadObject = z.infer<typeof TwitterThreadObject>;
 
@@ -292,27 +290,22 @@ export class TwitterClient {
 		return data;
 	}
 
-	async createThread({ tweets, media = [], ignoreCharacterLimit }: TwitterThreadObject) {
+	async createThread(tweets: TwitterThreadObject) {
 		this.logger.debug(`TwitterClient.createThread :: creating thread`);
 
-		if (!ignoreCharacterLimit && tweets.some((tweet) => tweet.length > MAX_TWEET_LENGTH)) {
+		if (tweets.some((tweet) => tweet.text.length > MAX_TWEET_LENGTH && !tweet.ignoreCharacterLimit)) {
 			throw new MaxTextSizeError(MAX_TWEET_LENGTH);
 		}
-		if (media.length > 4) throw new MaxMediaCountError(4);
 
-		const [firstText, ...otherTexts] = tweets;
+		const [firstTweet, ...otherTweets] = tweets;
 
 		try {
-			const { id: headId } = await this.createTweet({
-				text: firstText,
-				ignoreCharacterLimit,
-				media,
-			});
+			const { id: headId } = await this.createTweet(firstTweet);
 
 			let inReplyTo = headId;
 
-			for (const text of otherTexts) {
-				const { id } = await this.createTweet({ text, ignoreCharacterLimit }, inReplyTo);
+			for (const tweet of otherTweets) {
+				const { id } = await this.createTweet(tweet, inReplyTo);
 				inReplyTo = id;
 			}
 
