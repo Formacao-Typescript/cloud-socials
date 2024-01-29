@@ -1,13 +1,16 @@
 {
-	"fmt": {
-		"lineWidth": 120,
-		"singleQuote": true,
-		"semiColons": false,
-		"indentWidth": 2,
-		"useTabs": true
-	},
-	"tasks": {
-		"deps:reload": "deno cache --reload src/deps.ts",
-		"dev": "deno run --watch -A --unstable src/server.ts"
-	}
+  "fmt": {
+    "lineWidth": 120,
+    "singleQuote": true,
+    "semiColons": false,
+    "indentWidth": 2,
+    "useTabs": true
+  },
+  "lint": {
+    "exclude": ["__test__/**/*"]
+  },
+  "tasks": {
+    "deps:reload": "deno cache --reload src/deps.ts",
+    "dev": "deno run --watch -A --unstable src/server.ts"
+  }
 }
