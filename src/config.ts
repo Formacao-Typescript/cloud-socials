@@ -1,16 +1,16 @@
-import { dotenv, log, z } from './deps.ts';
-await dotenv.load({ export: true });
+import { dotenv, log, z } from './deps.ts'
+await dotenv.load({ export: true })
 
 log.setup({
 	handlers: {
 		console: new log.handlers.ConsoleHandler('DEBUG', {
 			formatter: ({ datetime, levelName, loggerName, msg }) => {
 				if (levelName === 'DEBUG' && (!Deno.env.get('DENO_ENV') || Deno.env.get('DENO_ENV') === 'production')) {
-					return '';
+					return ''
 				}
 				return `${loggerName !== 'default' ? loggerName : ''}(${levelName})[${datetime.toISOString()}] ::\t${
 					typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)
-				}`;
+				}`
 			},
 		}),
 	},
@@ -24,7 +24,7 @@ log.setup({
 			handlers: ['console'],
 		},
 	},
-});
+})
 
 const Config = z
 	.object({
@@ -70,7 +70,7 @@ const Config = z
 			clientSecret: envs.LINKEDIN_CLIENT_SECRET,
 			allowedUserId: envs.LINKEDIN_ALLOWED_USER_ID,
 		},
-	}));
+	}))
 
-export type AppConfig = z.infer<typeof Config>;
-export const appConfig = Config.parse(Deno.env.toObject());
+export type AppConfig = z.infer<typeof Config>
+export const appConfig = Config.parse(Deno.env.toObject())

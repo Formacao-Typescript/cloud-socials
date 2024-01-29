@@ -10,3 +10,12 @@ export * as pkce from 'https://deno.land/x/pkce_deno@v2.0/mod.ts';
 export * as z from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 export { Buffer } from 'node:buffer';
 export * as twitter from 'npm:twitter-api-v2';
+export { encodeHex } from 'https://deno.land/std@0.208.0/encoding/hex.ts'
+export * as log from 'https://deno.land/std@0.208.0/log/mod.ts'
+export * as path from 'https://deno.land/std@0.208.0/path/mod.ts'
+export { delay } from 'https://deno.land/std@0.210.0/async/delay.ts'
+export {
+	DOMParser,
+	Element,
+	initParser as initDomParser,
+} from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm-noinit.ts'
