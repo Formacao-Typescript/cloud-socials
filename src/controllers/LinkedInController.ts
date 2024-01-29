@@ -1,5 +1,12 @@
-import { AccessTokenResponse, LinkedinClient, LinkedinMediaTypes } from '../clients/LinkedinClient.ts'
 import { AppConfig } from '../config.ts'
+import {
+	AccessToken,
+	AccessTokenResponse,
+	AuthenticatedLinkedinClient,
+	LinkedinClient,
+	LinkedinClientOptions,
+	LinkedinMediaTypes,
+} from '../deps.ts'
 import { LinkedinPost } from '../domain/LinkedinPost.ts'
 import { ExpiredTokenError } from '../domain/errors/ExpiredTokenError.ts'
 import { WrongTokenError } from '../domain/errors/WrongTokenError.ts'
@@ -10,10 +17,32 @@ import { LinkedinMediaArticleInput, LinkedinShareInput } from '../networks/linke
 export class LinkedInController {
 	private readonly config: AppConfig['linkedin']
 	private readonly logger: AppConfig['loggers']['default']
+	#client: AuthenticatedLinkedinClient | null = null
 
-	constructor(config: AppConfig, private readonly db: Deno.Kv, private readonly client: LinkedinClient) {
+	constructor(config: AppConfig, private readonly db: Deno.Kv, private readonly authClient: LinkedinClient) {
 		this.config = config.linkedin
 		this.logger = config.loggers.default
+	}
+
+	async initialize(clientOptions: LinkedinClientOptions) {
+		try {
+			const { value: accessToken } = await this.db.get<string>(this.kvKeyBuilder.accessToken())
+			if (!accessToken) return
+
+			this.#client = new AuthenticatedLinkedinClient(
+				clientOptions,
+				{
+					access_token: accessToken,
+					expires_in: Date.now() + 1000 * 60 * 60 * 24 * 365,
+					refresh_token: (await this.db.get<string>(this.kvKeyBuilder.refreshToken())).value ?? undefined,
+					refresh_token_expires_in: Date.now() + 1000 * 60 * 60 * 24 * 365,
+				},
+				this.authClient,
+			)
+		} catch (error) {
+			this.logger.error(`LinkedinController.initialize :: ${error}`)
+			return
+		}
 	}
 
 	private get kvKeyBuilder() {
@@ -25,14 +54,19 @@ export class LinkedInController {
 		}
 	}
 
-	private get authorizedUserURN() {
-		return `urn:li:person:${this.config.allowedUserId}`
+	get client() {
+		if (!this.#client) {
+			throw new Error('LinkedinController.client :: client is not initialized yet, please log in first')
+		}
+		return this.#client
 	}
 
-	get loginUrl() {
-		const { url, nonce } = this.client.loginUrl
-		this.db.set(this.kvKeyBuilder.nonces(nonce), nonce, { expireIn: 60000 })
-		return url
+	set client(client: AuthenticatedLinkedinClient) {
+		this.#client = client
+	}
+
+	private get authorizedUserURN() {
+		return `urn:li:person:${this.config.allowedUserId}`
 	}
 
 	private async setTokens(data: AccessTokenResponse) {
@@ -46,50 +80,61 @@ export class LinkedInController {
 	}
 
 	async exchangeAccessToken(code: string, nonce: string) {
-		this.logger.debug(`LinkedinController.exchangeAccessToken :: nonce ${nonce}`)
+		try {
+			this.logger.debug(`LinkedinController.exchangeAccessToken :: nonce ${nonce}`)
 
-		const data = await this.client.exchangeAccessToken(code, nonce)
-		if (data) {
-			await this.setTokens(data)
+			this.client = await this.authClient.exchangeLoginToken(code, nonce)
 			await this.validateAccessToken()
-			return data
+			await this.setTokens({
+				access_token: this.client.accessToken,
+				expires_in: this.client.accessTokenExpiresIn ?? 0,
+				refresh_token: this.client.refreshToken,
+				refresh_token_expires_in: this.client.refreshTokenExpiresIn,
+			})
+		} catch (err) {
+			throw new WrongTokenError(err.message)
 		}
-
-		throw new WrongTokenError('Could not exchange access token')
 	}
 
-	private async getAccessToken(): Promise<string> {
-		const [{ value: accessToken }, { value: refreshToken }] = await Promise.all([
+	private async getAccessToken(): Promise<AccessToken> {
+		const [{ value: accessToken }, refreshToken] = await Promise.all([
 			this.db.get<string>(this.kvKeyBuilder.accessToken()),
 			this.getRefreshToken(),
 		])
 
-		if (accessToken) return accessToken
+		if (accessToken) {
+			this.client.accessToken = accessToken
+			return this.client.accessToken
+		}
 		if (!refreshToken) throw new ExpiredTokenError('Access token is expired and no refresh token was found')
 
 		if (refreshToken) {
-			const refreshResult = await this.client.refreshAccessToken(refreshToken)
+			const refreshResult = await this.client.refreshAccessToken()
 			if (!refreshResult) {
 				await this.clearTokens()
+				this.client.clearTokens()
 				throw new ExpiredTokenError('Refresh token is expired')
 			}
 
 			await this.setTokens(refreshResult)
+			this.client.setTokens(refreshResult)
 		}
 
 		return await this.getAccessToken()
 	}
 
 	private async getRefreshToken() {
-		const refreshToken = await this.db.get<string>(this.kvKeyBuilder.refreshToken())
-		return refreshToken
+		const { value } = await this.db.get<string>(this.kvKeyBuilder.refreshToken())
+		if (!value) return ''
+		this.client.refreshToken = value
+		return this.client.refreshToken
 	}
 
 	async validateAccessToken() {
 		const accessToken = await this.getAccessToken()
 		this.logger.debug(`LinkedinController.validateAccessToken :: accessToken is present`)
 
-		const data = await this.client.getTokenUserProfile(accessToken)
+		const data = await this.client.getSelfProfile(accessToken)
 		if (!data) throw new WrongTokenError('Could not get user profile from Linkedin')
 
 		if (!data.id || data.id !== this.config.allowedUserId) {
@@ -101,15 +146,11 @@ export class LinkedInController {
 		return true
 	}
 
-	async validateNonce(state: string) {
-		const nonce = await this.db.get(this.kvKeyBuilder.nonces(state))
-		return nonce.value && nonce.value === state
-	}
-
 	private async clearTokens() {
 		this.logger.info(`LinkedinController.clearTokens :: clearing tokens`)
 		await this.db.delete(this.kvKeyBuilder.accessToken())
 		await this.db.delete(this.kvKeyBuilder.refreshToken())
+		this.client.clearTokens()
 	}
 
 	async sharePost({ text, media, comments }: LinkedinShareInput) {
@@ -127,33 +168,33 @@ export class LinkedInController {
 					break
 				case LinkedinMediaTypes.VIDEO: {
 					const video: Blob = await fetch(media.source).then((res) => res.blob())
+					console.log(Deno.inspect(video))
 					// Videos are handled differently
 					const {
 						uploadUrl: urlArray,
 						urn: videoUrn,
 						uploadToken,
-					} = await this.client.initializeVideoUpload(accessToken, {
+					} = await this.client.initializeUpload(LinkedinMediaTypes.VIDEO, {
 						owner: this.authorizedUserURN,
 						fileSizeBytes: video.size,
 					})
 					post.addMedia(media.type, media.title, videoUrn)
 					this.logger.info(`LinkedinClient.sharePost :: videoUrn received ${videoUrn}`)
 
-					// NOTE: This can probably be done in parallel since we will have to split it into 4MB chunks anyway
-					await this.client.uploadVideo(accessToken, { urlArray, videoBlob: video, videoUrn, uploadToken })
+					await this.client.uploadVideo({ uploadToken, urlArray, videoBlob: video, videoUrn }, accessToken)
 					break
 				}
 				case LinkedinMediaTypes.IMAGE:
 				case LinkedinMediaTypes.DOCUMENT: {
 					// For all other media types, we need to upload the asset first
-					const { uploadUrl, urn: assetUrn } = await this.client.initializeImageOrDocumentUpload(
-						accessToken,
+					const { uploadUrl, urn: assetUrn } = await this.client.initializeUpload(
 						media.type as LinkedinMediaTypes.IMAGE | LinkedinMediaTypes.DOCUMENT,
 						{
 							owner: this.authorizedUserURN,
 						},
+						accessToken,
 					)
-					await this.client.uploadImageOrDocument(uploadUrl, media.source, accessToken)
+					await this.client.uploadImageOrDocument({ source: media.source, uploadUrl }, accessToken)
 					post.addMedia(media.type, media.title, assetUrn)
 					break
 				}
@@ -162,24 +203,24 @@ export class LinkedInController {
 			}
 		}
 
-		const { postUrl, postUrn } = await this.client.sharePost(post, accessToken)
+		const { postUrl, postUrn } = await this.client.sharePost(post.payload, accessToken)
 
 		// Post comments
 		if (comments) {
 			this.logger.debug(`LinkedinClient.sharePost :: comments ${JSON.stringify(comments, null, 2)}`)
 			for (const comment of comments) {
 				this.client
-					.postComment(postUrn, comment.text, accessToken, this.authorizedUserURN)
-					.then((commentURN) => {
-						this.logger.info(`LinkedinClient.sharePost :: comment posted on ${postUrn} => ${commentURN}`)
+					.postComment({ authorUrn: this.authorizedUserURN, comment: comment.text, postUrn }, accessToken)
+					.then(({ commentUrn }) => {
+						this.logger.info(`LinkedinClient.sharePost :: comment posted on ${postUrn} => ${commentUrn}`)
 					})
 					.catch((err) => {
-						this.logger.warning(`LinkedinClient.sharePost :: failed to post comment on ${postUrn} => ${err}`)
+						this.logger.warn(`LinkedinClient.sharePost :: failed to post comment on ${postUrn} => ${err}`)
 					})
 			}
 		}
 
-		return { postUrl, postUrn }
+		return { postUrl, postUrn, mediaUrn: post.getMediaURN() }
 	}
 
 	/**
@@ -211,10 +252,20 @@ export class LinkedInController {
 
 							// Linkedin only accepts URNs as images for articles
 							// So we need to upload the image first
-							const { urn } = await this.client.initializeImageOrDocumentUpload(accessToken, LinkedinMediaTypes.IMAGE, {
-								owner: this.authorizedUserURN,
-							})
-							await this.client.uploadImageOrDocument(urn, validatedProperty, accessToken)
+							const { urn, uploadUrl } = await this.client.initializeUpload(
+								LinkedinMediaTypes.IMAGE,
+								{
+									owner: this.authorizedUserURN,
+								},
+								accessToken,
+							)
+							await this.client.uploadImageOrDocument(
+								{
+									source: validatedProperty,
+									uploadUrl,
+								},
+								accessToken,
+							)
 
 							article[property] = urn
 						}

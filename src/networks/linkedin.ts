@@ -1,8 +1,8 @@
-import { LinkedinClient, LinkedinMediaTypes } from '../clients/LinkedinClient.ts'
+// import { LinkedinClient, LinkedinMediaTypes } from '../clients/LinkedinClient.ts'
 import { appConfig } from '../config.ts'
 import { LinkedInController } from '../controllers/LinkedInController.ts'
 import { openKv } from '../data/db.ts'
-import { oak, z } from '../deps.ts'
+import { LinkedinClient, LinkedinClientOptions, LinkedinMediaTypes, oak, z } from '../deps.ts'
 import validateBody from '../middlewares/zodValidationMiddleware.ts'
 
 const LinkedinMediaAssetInputSchema = z.object({
@@ -42,15 +42,32 @@ export type LinkedinShareInput = z.infer<typeof LinkedinShareInputSchema>
 
 const linkedin = new oak.Router().prefix('/linkedin')
 const db = await openKv()
-const client = new LinkedinClient(appConfig)
-const controller = new LinkedInController(appConfig, db, client)
+const linkedinOptions: LinkedinClientOptions = {
+	clientId: appConfig.linkedin.clientId,
+	clientSecret: appConfig.linkedin.clientSecret,
+	oauthScopes: [
+		'r_emailaddress',
+		'w_member_social',
+		'r_basicprofile',
+		'w_organization_social',
+		'rw_ads',
+		'r_organization_social',
+	],
+	oauthCallbackUrl: `${appConfig.server.oauthCallbackBaseUrl}/linkedin/oauth/callback`,
+	customLogger: appConfig.loggers.default,
+	defaultDelayBetweenRequestsMs: 2000,
+	retryAttempts: 30,
+}
+const nonAuthClient = new LinkedinClient(linkedinOptions)
+const controller = new LinkedInController(appConfig, db, nonAuthClient)
+await controller.initialize(linkedinOptions)
 
 linkedin.get('/oauth/login', (ctx) => {
-	const loginUrl = controller.loginUrl
+	const loginUrl = nonAuthClient.loginUrl
 	ctx.response.body = loginUrl
 
 	if (!ctx.request.url.searchParams.has('urlOnly')) {
-		ctx.response.headers.set('Location', loginUrl)
+		ctx.response.headers.set('Location', loginUrl.url)
 		ctx.response.status = 302
 	}
 	return
@@ -73,11 +90,6 @@ linkedin.get('/oauth/callback', async (ctx) => {
 
 	if (!code || !state) {
 		throw oak.createHttpError(422, 'Missing code or state')
-	}
-
-	const csrfMatch = await controller.validateNonce(state)
-	if (!csrfMatch) {
-		throw oak.createHttpError(401, 'Invalid state')
 	}
 
 	await controller.exchangeAccessToken(code, state)
