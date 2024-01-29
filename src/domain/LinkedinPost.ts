@@ -1,4 +1,4 @@
-import { LinkedinMediaTypes } from '../clients/LinkedinClient.ts'
+import { LinkedinMediaTypes, LinkedinPostPayload } from '../deps.ts'
 import { LinkedinMediaArticleInput, LinkedinMediaAssetInput, LinkedinMediaInput } from '../networks/linkedin.ts'
 
 export class LinkedinPost {
@@ -12,14 +12,12 @@ export class LinkedinPost {
 			visibility: 'PUBLIC',
 			distribution: {
 				feedDistribution: 'MAIN_FEED',
-				targetEntities: [],
-				thirdPartyDistributionChannels: [],
 			},
 			commentary: this.text,
 			lifecycleState: 'PUBLISHED',
 			isReshareDisabledByAuthor: false,
 			...this.#parseMedia(),
-		}
+		} as LinkedinPostPayload
 	}
 
 	addArticle(data: Omit<LinkedinMediaInput, 'type'>) {
@@ -28,6 +26,19 @@ export class LinkedinPost {
 			...data,
 		}
 		return this
+	}
+
+	getMediaURN() {
+		if (!this.media) return ''
+
+		switch (this.media.type) {
+			case LinkedinMediaTypes.ARTICLE:
+				return this.media.source
+			case LinkedinMediaTypes.IMAGE:
+			case LinkedinMediaTypes.DOCUMENT:
+			case LinkedinMediaTypes.VIDEO:
+				return this.media.id
+		}
 	}
 
 	addMedia(type: Exclude<LinkedinMediaInput['type'], 'article'>, title: string, id: string) {
