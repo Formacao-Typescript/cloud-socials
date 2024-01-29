@@ -121,45 +121,45 @@ export class LinkedInController {
 		if (media) {
 			this.logger.info(`LinkedinClient.sharePost :: post has media ${JSON.stringify(media, null, 2)}`)
 			switch (media.type) {
-        case LinkedinMediaTypes.ARTICLE:
-          // Articles (links) are shared with simple text
-          post.addArticle(await this.enrichArticle(media))
-          break
-        case LinkedinMediaTypes.VIDEO: {
-          const video: Blob = await fetch(media.source).then((res) => res.blob())
-          // Videos are handled differently
-          const {
-            uploadUrl: urlArray,
-            urn: videoUrn,
-            uploadToken
-          } = await this.client.initializeVideoUpload(accessToken, {
-            owner: this.authorizedUserURN,
-            fileSizeBytes: video.size
-          })
-          post.addMedia(media.type, media.title, videoUrn)
-          this.logger.info(`LinkedinClient.sharePost :: videoUrn received ${videoUrn}`)
+				case LinkedinMediaTypes.ARTICLE:
+					// Articles (links) are shared with simple text
+					post.addArticle(await this.enrichArticle(media))
+					break
+				case LinkedinMediaTypes.VIDEO: {
+					const video: Blob = await fetch(media.source).then((res) => res.blob())
+					// Videos are handled differently
+					const {
+						uploadUrl: urlArray,
+						urn: videoUrn,
+						uploadToken,
+					} = await this.client.initializeVideoUpload(accessToken, {
+						owner: this.authorizedUserURN,
+						fileSizeBytes: video.size,
+					})
+					post.addMedia(media.type, media.title, videoUrn)
+					this.logger.info(`LinkedinClient.sharePost :: videoUrn received ${videoUrn}`)
 
-          // NOTE: This can probably be done in parallel since we will have to split it into 4MB chunks anyway
-          await this.client.uploadVideo(accessToken, { urlArray, videoBlob: video, videoUrn, uploadToken })
-          break
-        }
-        case LinkedinMediaTypes.IMAGE:
-        case LinkedinMediaTypes.DOCUMENT: {
-          // For all other media types, we need to upload the asset first
-          const { uploadUrl, urn: assetUrn } = await this.client.initializeImageOrDocumentUpload(
-            accessToken,
-            media.type as LinkedinMediaTypes.IMAGE | LinkedinMediaTypes.DOCUMENT,
-            {
-              owner: this.authorizedUserURN
-            }
-          )
-          await this.client.uploadImageOrDocument(uploadUrl, media.source, accessToken)
-          post.addMedia(media.type, media.title, assetUrn)
-          break
-        }
-        default:
-          throw new Error(`LinkedinClient.sharePost :: unknown media type ${(media as { type: string }).type}`)
-      }
+					// NOTE: This can probably be done in parallel since we will have to split it into 4MB chunks anyway
+					await this.client.uploadVideo(accessToken, { urlArray, videoBlob: video, videoUrn, uploadToken })
+					break
+				}
+				case LinkedinMediaTypes.IMAGE:
+				case LinkedinMediaTypes.DOCUMENT: {
+					// For all other media types, we need to upload the asset first
+					const { uploadUrl, urn: assetUrn } = await this.client.initializeImageOrDocumentUpload(
+						accessToken,
+						media.type as LinkedinMediaTypes.IMAGE | LinkedinMediaTypes.DOCUMENT,
+						{
+							owner: this.authorizedUserURN,
+						},
+					)
+					await this.client.uploadImageOrDocument(uploadUrl, media.source, accessToken)
+					post.addMedia(media.type, media.title, assetUrn)
+					break
+				}
+				default:
+					throw new Error(`LinkedinClient.sharePost :: unknown media type ${(media as { type: string }).type}`)
+			}
 		}
 
 		const { postUrl, postUrn } = await this.client.sharePost(post, accessToken)
@@ -212,9 +212,9 @@ export class LinkedInController {
 							// Linkedin only accepts URNs as images for articles
 							// So we need to upload the image first
 							const { urn } = await this.client.initializeImageOrDocumentUpload(accessToken, LinkedinMediaTypes.IMAGE, {
-                owner: this.authorizedUserURN
-              })
-              await this.client.uploadImageOrDocument(urn, validatedProperty, accessToken)
+								owner: this.authorizedUserURN,
+							})
+							await this.client.uploadImageOrDocument(urn, validatedProperty, accessToken)
 
 							article[property] = urn
 						}

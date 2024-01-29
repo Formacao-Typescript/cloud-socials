@@ -10,13 +10,8 @@
       "type": "node",
       "program": "${workspaceFolder}/src/server.ts",
       "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "/home/roziscoding/.asdf/shims/deno",
-      "runtimeArgs": [
-        "run",
-        "--unstable",
-        "--inspect-wait",
-        "--allow-all"
-      ],
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["run", "--unstable", "--inspect-wait", "--allow-all"],
       "attachSimplePort": 9229
     }
   ]
